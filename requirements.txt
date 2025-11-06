@@ -1,0 +1,2 @@
+# Placeholder requirements file.
+# Add pinned dependencies for your agent framework (e.g., torch==*, mindspore==*, ray[rllib]==*, etc.).
