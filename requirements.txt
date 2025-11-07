@@ -1,2 +1,3 @@
-# Placeholder requirements file.
-# Add pinned dependencies for your agent framework (e.g., torch==*, mindspore==*, ray[rllib]==*, etc.).
+gym>=0.26
+numpy>=1.24
+torch>=2.0
