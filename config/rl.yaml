@@ -1,2 +1,17 @@
-# RL training configuration placeholder.
-# Specify algorithm choice (e.g., PPO), learning rates, rollout horizon, and scheduler options.
+ppo:
+  total_steps: 10000
+  rollout_length: 256
+  ppo_epochs: 4
+  minibatch_size: 64
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_coef: 0.2
+  ent_coef: 0.01
+  vf_coef: 0.5
+  lr: 0.0003
+  max_grad_norm: 0.5
+  device: cpu
+
+env:
+  max_steps: 6
+  seed: 42

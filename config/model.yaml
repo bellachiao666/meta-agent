@@ -1,2 +1,19 @@
-# Model configuration placeholder.
-# Define model checkpoints, tokenizer settings, and inference parameters for each agent here.
+controller:
+  reward:
+    alpha: 2.0
+    beta: 1.0
+    gamma: 0.3
+    delta: 0.2
+  error_labels:
+    - none
+    - logic_error
+    - syntax_error
+    - missing_tests
+    - style_issue
+
+policy:
+  hidden_sizes: [128, 128]
+
+tasks:
+  - spec: "实现一个打印 Hello World 的 Python 脚本"
+  - spec: "编写一个读取命令行参数的 CLI"
