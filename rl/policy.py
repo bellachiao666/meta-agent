@@ -1,9 +1,7 @@
 """Policy definitions for PPO training of the meta-agent."""
 
 from __future__ import annotations
-
 from typing import Iterable, Sequence
-
 import numpy as np
 import torch
 import torch.nn as nn
