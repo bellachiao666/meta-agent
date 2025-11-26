@@ -1,9 +1,9 @@
-"""PPO trainer for the meta-agent gym environment."""
+"""PPO trainer for the meta-agent gym environment，加入可选的 wandb 监控。"""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Dict, List, Sequence, Tuple
+from dataclasses import asdict, dataclass
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import torch
@@ -27,6 +27,13 @@ class PPOConfig:
     lr: float = 3e-4
     max_grad_norm: float = 0.5
     device: str = "cpu"
+    # wandb 相关配置，默认为关闭
+    log_wandb: bool = False
+    wandb_project: str = "meta-agent"
+    wandb_run_name: Optional[str] = None
+    wandb_entity: Optional[str] = None
+    wandb_tags: Tuple[str, ...] = ()
+    wandb_mode: str = "online"
 
 
 class RolloutBuffer:
@@ -173,6 +180,21 @@ def train(env, policy: PPOPolicy, config: PPOConfig) -> Dict[str, float]:
     optimizer = optim.Adam(policy.parameters(), lr=config.lr)
     buffer = RolloutBuffer()
 
+    wandb_run = None
+    if config.log_wandb:
+        try:
+            import wandb
+        except ImportError as exc:
+            raise ImportError("检测到 log_wandb=True，但未安装 wandb，请先 pip install wandb") from exc
+        wandb_run = wandb.init(
+            project=config.wandb_project,
+            name=config.wandb_run_name,
+            entity=config.wandb_entity,
+            tags=list(config.wandb_tags),
+            mode=config.wandb_mode,
+            config=asdict(config),
+        )
+
     obs, _ = env.reset()
     global_step = 0
     reward_history: List[float] = []
@@ -194,6 +216,22 @@ def train(env, policy: PPOPolicy, config: PPOConfig) -> Dict[str, float]:
         reward_history.extend(batch_rewards)
         length_history.extend(batch_lengths)
 
+        if wandb_run:
+            # 在线记录当前批次的优化与采样质量指标
+            batch_reward_mean = float(np.mean(batch_rewards)) if batch_rewards else 0.0
+            batch_length_mean = float(np.mean(batch_lengths)) if batch_lengths else 0.0
+            wandb.log(
+                {
+                    "train/step": global_step,
+                    "train/loss": batch_stats["loss"],
+                    "train/policy_loss": batch_stats["policy_loss"],
+                    "train/value_loss": batch_stats["value_loss"],
+                    "train/entropy": batch_stats["entropy"],
+                    "train/rollout_reward_mean": batch_reward_mean,
+                    "train/rollout_length_mean": batch_length_mean,
+                }
+            )
+
     mean_reward = float(np.mean(reward_history)) if reward_history else 0.0
     mean_length = float(np.mean(length_history)) if length_history else 0.0
     summary = {
@@ -202,6 +240,10 @@ def train(env, policy: PPOPolicy, config: PPOConfig) -> Dict[str, float]:
         "mean_episode_length": mean_length,
     }
     summary.update(last_metrics)
+
+    if wandb_run:
+        wandb_run.summary.update(summary)
+        wandb_run.finish()
     return summary
 
 

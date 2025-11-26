@@ -1,9 +1,9 @@
-"""基于简单双层感知机的世界模型，用于预测下一状态和即时奖励。"""
+"""基于 Transformer 编码器的世界模型，用于预测下一状态和即时奖励。"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, Tuple
+from typing import Tuple
 
 import numpy as np
 import torch
@@ -11,30 +11,21 @@ import torch.nn as nn
 import torch.optim as optim
 
 
-def _mlp(input_dim: int, hidden_sizes: Iterable[int], output_dim: int, activation=nn.ReLU) -> nn.Sequential:
-    """快速构建多层感知机，减少样板代码。"""
-    layers = []
-    last = input_dim
-    for size in hidden_sizes:
-        layers.append(nn.Linear(last, size))
-        layers.append(activation())
-        last = size
-    layers.append(nn.Linear(last, output_dim))
-    return nn.Sequential(*layers)
-
-
 @dataclass
 class WorldModelConfig:
     """训练世界模型的关键超参容器。"""
 
-    hidden_sizes: Tuple[int, ...] = (128, 128)
+    d_model: int = 128
+    nhead: int = 4
+    num_layers: int = 2
+    dropout: float = 0.1
     lr: float = 1e-3
     device: str = "cpu"
 
 
 class WorldModel(nn.Module):
     """
-    预测 s_{t+1} 与 r_t 的轻量模型。
+    预测 s_{t+1} 与 r_t 的轻量模型（Transformer 编码）。
     - 输入：obs_t (B, obs_dim)、action_t (B,)。
     - 输出：pred_next_obs (B, obs_dim)、pred_reward (B,)。
     """
@@ -46,20 +37,37 @@ class WorldModel(nn.Module):
         self.act_dim = act_dim
         self.config = cfg
 
-        # 动作嵌入将离散动作编码为连续向量，便于和状态拼接。
-        self.action_embed = nn.Embedding(act_dim, cfg.hidden_sizes[0])
-        self.encoder = _mlp(obs_dim, cfg.hidden_sizes, cfg.hidden_sizes[-1])
-        self.transition_head = nn.Linear(cfg.hidden_sizes[-1] + cfg.hidden_sizes[0], obs_dim)
-        self.reward_head = nn.Linear(cfg.hidden_sizes[-1] + cfg.hidden_sizes[0], 1)
+        # 将 obs 压缩为 token，动作用 embedding，再送入 TransformerEncoder。
+        self.state_proj = nn.Linear(obs_dim, cfg.d_model)
+        self.action_embed = nn.Embedding(act_dim, cfg.d_model)
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=cfg.d_model,
+            nhead=cfg.nhead,
+            dim_feedforward=cfg.d_model * 4,
+            dropout=cfg.dropout,
+            batch_first=True,
+            activation="gelu",
+        )
+        self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=cfg.num_layers)
+        self.pos_embedding = nn.Parameter(torch.zeros(1, 2, cfg.d_model))
+
+        # 使用编码后的 state token 预测下一状态与奖励
+        self.transition_head = nn.Linear(cfg.d_model, obs_dim)
+        self.reward_head = nn.Linear(cfg.d_model, 1)
         self.to(cfg.device)
 
     def forward(self, obs: torch.Tensor, actions: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        # 将 obs 与动作嵌入拼接，再分别预测下一状态与奖励。
-        obs_feat = self.encoder(obs)
-        act_feat = self.action_embed(actions)
-        joint = torch.cat([obs_feat, act_feat], dim=-1)
-        next_obs = self.transition_head(joint)
-        reward = self.reward_head(joint).squeeze(-1)
+        # 构造长度为 2 的 token 序列：[state_token, action_token]
+        state_token = self.state_proj(obs)
+        action_token = self.action_embed(actions)
+        tokens = torch.stack([state_token, action_token], dim=1)  # (B, 2, d_model)
+        tokens = tokens + self.pos_embedding[:, :2, :]
+        encoded = self.encoder(tokens)
+
+        # 使用编码后的 state token 进行解码
+        state_encoded = encoded[:, 0, :]
+        next_obs = self.transition_head(state_encoded)
+        reward = self.reward_head(state_encoded).squeeze(-1)
         return next_obs, reward
 
     @torch.no_grad()
