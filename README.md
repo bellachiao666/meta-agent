@@ -1,15 +1,9 @@
-# Meta-Agent Project Scaffold
+# 基于强化学习的多智能体代码生成与协作框架
 
-This repository hosts a reinforcement-learning-driven orchestration layer for a team of specialized coding agents. The current scaffold provides placeholders for configuration, agent implementations, environment wrappers, RL components, and supporting utilities. Populate each module as your project evolves.
+本仓库是一个以强化学习为核心的多智能体编排框架，用于调度一组具备不同能力的代码智能体。系统通过 Meta-Controller（RL 策略） 来协调以下角色：
+	•	Coder：根据任务生成代码候选
+	•	Tester：执行代码，返回运行状态、异常或测试结果
+	•	Reviewer：从正确性、鲁棒性、可读性等维度进行质量评估
+	•	（可选）World Model：用于预测环境转移，支持模型辅助 RL
 
-## Directory Overview
-- `config/`: YAML configuration for model routing and RL hyperparameters.
-- `data/`: Sample tasks, related test fixtures, and execution logs.
-- `agents/`: Individual agent implementations (coder, tester, reviewer, meta-controller).
-- `env/`: Environment abstractions exposing state, action, and reward hooks for the meta-agent.
-- `rl/`: Policy definitions and training loop utilities for RL-based coordination.
-- `scripts/`: Executable entry points for running pipelines, training, and evaluation.
-- `utils/`: Shared logging helpers and prompt templates.
-- `tests/`: End-to-end validation suite.
-
-Each source file currently includes a brief description to guide future implementation.
+该仓库提供了适用于科研与工程实践的基础脚手架，便于在 工具调用、LLM 编排、智能体协作、模型化环境(RL world model) 等方向上快速实验。
