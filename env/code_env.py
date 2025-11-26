@@ -16,6 +16,7 @@ from utils.logger import get_logger
 
 @dataclass
 class CodeTask:
+    # 训练时的任务规范与附加上下文
     spec: str
     context: Dict[str, str] = field(default_factory=dict)
 
@@ -65,11 +66,13 @@ class CodeEnv(gym.Env):
         return obs.astype(np.float32), info
 
     def step(self, action: int):
+        # 代理 gym 接口：传递动作到控制器并返回观察/奖励
         obs, reward, terminated, info = self.controller.step(int(action))
         truncated = self.controller.step_count >= self.max_steps and not terminated
         return obs.astype(np.float32), float(reward), bool(terminated), bool(truncated), info
 
     def render(self):
+        # 简要记录当前运行状态，方便调试
         info = {
             "step_count": self.controller.step_count,
             "retry_count": self.controller.retry_count,

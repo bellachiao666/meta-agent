@@ -14,6 +14,7 @@ from rl.policy import PPOPolicy
 
 @dataclass
 class PPOConfig:
+    # 训练 PPO 的主要超参，默认配置适合快速实验
     total_steps: int = 10_000
     rollout_length: int = 256
     ppo_epochs: int = 4
@@ -33,6 +34,7 @@ class RolloutBuffer:
         self.clear()
 
     def add(self, obs, action: int, reward: float, done: bool, log_prob: float, value: float) -> None:
+        # 保存单步交互数据，用于后续 GAE 与 PPO 更新
         self.observations.append(np.array(obs, dtype=np.float32))
         self.actions.append(action)
         self.rewards.append(reward)
@@ -55,6 +57,7 @@ class RolloutBuffer:
 
 
 def compute_gae(buffer: RolloutBuffer, next_value: float, gamma: float, gae_lambda: float) -> Tuple[np.ndarray, np.ndarray]:
+    # 基于 Generalized Advantage Estimation 计算 advantage 和 return
     rewards = buffer.rewards
     values = buffer.values + [next_value]
     dones = buffer.dones
@@ -77,6 +80,7 @@ def collect_rollout(
     device: torch.device,
     start_obs: np.ndarray,
 ) -> Tuple[np.ndarray, float, List[float], List[int]]:
+    # 在环境中采样固定步数的轨迹，并记录 episode 回报/长度
     obs = start_obs
     episode_rewards: List[float] = []
     episode_lengths: List[int] = []
@@ -106,6 +110,7 @@ def collect_rollout(
 
 
 def ppo_update(policy: PPOPolicy, optimizer: optim.Optimizer, buffer: RolloutBuffer, config: PPOConfig) -> Dict[str, float]:
+    # 按 PPO 公式计算剪切优势损失、价值损失与熵正则
     device = torch.device(config.device)
     obs = torch.tensor(np.stack(buffer.observations), dtype=torch.float32, device=device)
     actions = torch.tensor(buffer.actions, dtype=torch.long, device=device)
@@ -162,6 +167,7 @@ def ppo_update(policy: PPOPolicy, optimizer: optim.Optimizer, buffer: RolloutBuf
 
 
 def train(env, policy: PPOPolicy, config: PPOConfig) -> Dict[str, float]:
+    # 最小化训练循环：采样 rollout -> 计算 GAE -> PPO 更新 -> 汇总指标
     device = torch.device(config.device)
     policy.to(device)
     optimizer = optim.Adam(policy.parameters(), lr=config.lr)

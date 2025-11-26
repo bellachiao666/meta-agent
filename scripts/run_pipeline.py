@@ -5,4 +5,4 @@ Provide a CLI that executes coder → tester → reviewer agents without RL, use
 for deterministic baselines or debugging the agent stack.
 """
 
-# Implement main() to parse CLI arguments and orchestrate agent calls.
+# TODO: 实现 main()，解析 CLI 参数并依次调用 coder/tester/reviewer（中文注释说明占位）。

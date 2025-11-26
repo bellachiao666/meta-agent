@@ -13,6 +13,7 @@ from utils.prompts import get_prompt
 
 @dataclass
 class ReviewResult:
+    # 评审结果包含得分、摘要、提示列表以及推荐的下一步动作
     score: float
     summary: str
     hints: List[str]
@@ -43,6 +44,7 @@ class ReviewerAgent:
         return ReviewResult(score=score, summary=summary, hints=hints, recommended_action=action)
 
     def _heuristic_hints(self, bundle: CodeBundle, report: TestReport) -> List[str]:
+        # 粗略规则：根据代码片段和测试结果给出文本提示
         hints: List[str] = []
         text = bundle.as_text()
         if "TODO" in text:
@@ -56,6 +58,7 @@ class ReviewerAgent:
         return hints
 
     def _build_summary(self, report: TestReport, hints: List[str]) -> str:
+        # 将测试结果与提示组合成简短摘要
         base = "测试通过" if report.passed else f"测试失败：{report.error_type}"
         if hints:
             base += "。建议：" + "；".join(hints)

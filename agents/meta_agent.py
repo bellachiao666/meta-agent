@@ -15,6 +15,7 @@ from utils.logger import get_logger
 
 @dataclass
 class MetaState:
+    # 记录测试通过情况、评审得分、重试次数、错误类型、代码差异、时间成本等核心状态变量
     test_passed: int = 0
     review_score: float = 0.0
     retry_count: int = 0
@@ -27,6 +28,7 @@ class StateEncoder:
     """Encodes structured state data into RL-friendly vectors."""
 
     def __init__(self, error_labels: Optional[List[str]] = None) -> None:
+        # error_labels 用于 one-hot 编码错误类型，可在配置中扩展
         self.error_labels = error_labels or [
             "none",
             "logic_error",
@@ -40,6 +42,7 @@ class StateEncoder:
         return 5 + len(self.error_labels)
 
     def encode(self, state: MetaState) -> np.ndarray:
+        # 将 MetaState 转成浮点向量，便于策略网络直接消费
         vec = [
             float(state.test_passed),
             state.review_score,
@@ -95,6 +98,7 @@ class MetaAgentController:
         return list(self.ACTIONS)
 
     def reset(self, task_spec: str, context: Optional[Dict] = None, max_steps: int = 6) -> np.ndarray:
+        # 重新初始化控制器状态，并返回首个观察
         self.task_spec = task_spec
         self.context = context or {}
         self.current_bundle = None
@@ -110,6 +114,7 @@ class MetaAgentController:
         return self.encoder.encode(self.state)
 
     def step(self, action_id: int) -> Tuple[np.ndarray, float, bool, Dict]:
+        # 统一入口：根据动作执行子 agent，更新状态，计算奖励
         action_name = self._action_from_id(action_id)
         self.step_count += 1
         terminated = False
@@ -147,6 +152,7 @@ class MetaAgentController:
         return self.ACTIONS[action_id]
 
     def _handle_generation(self, strategy: str) -> bool:
+        # 触发 coder 生成并立即运行测试；返回是否提前结束
         self.retry_count += 1
         hint = self.review_result.summary if (strategy == "refine" and self.review_result) else ""
         generation = self.coder.generate_code(
@@ -163,6 +169,7 @@ class MetaAgentController:
         return False
 
     def _handle_review_request(self) -> None:
+        # 触发 reviewer 在已有 bundle 和测试报告上给出建议
         if self.current_bundle and self.test_report:
             self.review_result = self.reviewer.review(self.current_bundle, self.test_report, self.context)
         else:
@@ -174,6 +181,7 @@ class MetaAgentController:
             )
 
     def _update_state(self) -> None:
+        # 将最新的测试/评审结果写回 MetaState，方便编码
         self.state = MetaState(
             test_passed=int(self.test_report.passed) if self.test_report else 0,
             review_score=self.review_result.score if self.review_result else 0.0,
@@ -184,6 +192,7 @@ class MetaAgentController:
         )
 
     def _compute_reward(self) -> float:
+        # 简单线性奖励：通过测试/高分评审加分，重试次数和错误严重度扣分
         pass_flag = 1.0 if self.test_report and self.test_report.passed else 0.0
         review_score = self.review_result.score if self.review_result else 0.0
         severity = self.test_report.severity if self.test_report else 0.0

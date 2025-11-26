@@ -9,6 +9,7 @@ from torch.distributions import Categorical
 
 
 def build_mlp(input_dim: int, hidden_sizes: Sequence[int], output_dim: int, activation=nn.Tanh) -> nn.Sequential:
+    """快速搭建多层感知机，用于 actor/critic 共享。"""
     layers = []
     last_dim = input_dim
     for size in hidden_sizes:
@@ -33,6 +34,7 @@ class PPOPolicy(nn.Module):
         return logits, value
 
     def act(self, obs, device: str | torch.device | None = None) -> tuple[int, float, float]:
+        # 单步采样动作，同时返回 log_prob 与 state value
         obs_tensor = self._format_obs(obs, device)
         logits = self.actor(obs_tensor)
         dist = Categorical(logits=logits)
@@ -46,6 +48,7 @@ class PPOPolicy(nn.Module):
         obs_batch: torch.Tensor,
         action_batch: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        # 评估一批动作的 log_prob/entropy/value，供 PPO 损失计算
         logits = self.actor(obs_batch)
         dist = Categorical(logits=logits)
         log_probs = dist.log_prob(action_batch)
@@ -54,11 +57,13 @@ class PPOPolicy(nn.Module):
         return log_probs, entropy, values
 
     def value(self, obs, device: str | torch.device | None = None) -> float:
+        # 仅推理 state value，用于 GAE 末尾 bootstrap
         obs_tensor = self._format_obs(obs, device)
         value = self.critic(obs_tensor).squeeze(-1)
         return float(value.item())
 
     def _format_obs(self, obs, device: str | torch.device | None) -> torch.Tensor:
+        # 接受 numpy 或列表输入，统一为批量 Tensor
         if isinstance(obs, np.ndarray):
             obs_tensor = torch.from_numpy(obs).float()
         else:

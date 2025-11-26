@@ -6,6 +6,7 @@ from typing import Dict
 
 
 PROMPTS: Dict[str, str] = {
+    # coder prompt：包含任务、策略、历史与提示
     "coder": (
         "You are Coder, an autonomous software engineer.\n"
         "Task: {task}\n"
@@ -14,6 +15,7 @@ PROMPTS: Dict[str, str] = {
         "Previous code (for diff awareness):\n{history}\n"
         "Produce updated code as file blocks."
     ),
+    # reviewer prompt：输入测试日志与代码快照
     "reviewer": (
         "You are Reviewer. Analyze the failing test log and summarize issues.\n"
         "Test Log:\n{test_log}\n"
@@ -26,6 +28,7 @@ PROMPTS: Dict[str, str] = {
 
 
 def get_prompt(agent_role: str, **kwargs) -> str:
+    # 按角色获取模板，并用 kwargs 格式化
     template = PROMPTS.get(agent_role)
     if not template:
         raise KeyError(f"Unknown agent role: {agent_role}")
